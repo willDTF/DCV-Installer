@@ -639,15 +639,20 @@ EOF
 ubuntuSetupNvidiaDriver()
 {
     echo "Installing NVIDIA driver..."
-    wget -q --no-check-certificate $url_nvidia_tesla_driver > /dev/null
-    if [ $? -ne 0 ]
-    then
-        echo "Failed to download the NVIDIA Driver. Aborting..."
-        exit 30
-    fi
-    sudo /bin/sh ./NVIDIA-Linux-x86_64*.run -s
-    sudo nvidia-xconfig --preserve-busid --enable-all-gpus
-    rm -f ./NVIDIA-Linux-x86_64*.run -s
+	if dpkg -l | egrep -iq nvidia
+	then
+		echo "Driver already installed..."
+	else
+	    wget -q --no-check-certificate $url_nvidia_tesla_driver > /dev/null
+	    if [ $? -ne 0 ]
+	    then
+	        echo "Failed to download the NVIDIA Driver. Aborting..."
+	        exit 30
+	    fi
+	    sudo /bin/sh ./NVIDIA-Linux-x86_64*.run -s
+	    sudo nvidia-xconfig --preserve-busid --enable-all-gpus
+	    rm -f ./NVIDIA-Linux-x86_64*.run -s
+	fi
 }
 
 ubuntuSetupAmdDriver()
@@ -762,8 +767,13 @@ ubuntuSetupNiceDcvServer()
     sudo usermod -aG video dcv > /dev/null
     echo "Installing DCV Xdcv..."
     sudo apt-get -qqy install ./nice-xdcv* > /dev/null
-    echo "Installing DCV GL..."
-    sudo apt-get -qqy install ./nice-dcv-gl* > /dev/null
+
+    if $dcv_gpu_support
+    then
+        echo "Installing DCV GL..."
+        sudo apt-get -qqy install ./nice-dcv-gl* > /dev/null
+    fi
+
     echo "Installing DCV Simple external authentication..."
     sudo apt-get -qqy install ./nice-dcv-simple-external-authenticat* > /dev/null
     echo "Installing DKMS..."
@@ -1266,15 +1276,20 @@ EOF
 centosSetupNvidiaDriver()
 {
     echo "Installing NVIDIA driver..."
-    wget -q --no-check-certificate $url_nvidia_tesla_driver > /dev/null
-    if [ $? -ne 0 ]
-    then
-        echo "Failed to download the NVIDIA driver. Aborting..."
-        exit 29
-    fi
-    sudo /bin/sh ./NVIDIA-Linux-x86_64*.run -s > /dev/null
-    sudo nvidia-xconfig --preserve-busid --enable-all-gpus > /dev/null
-    rm -f ./NVIDIA-Linux-x86_64*.run -s
+	if rpm -qa | egrep -iq nvidia
+	then
+		echo "Driver already installed..."
+	else
+	    wget -q --no-check-certificate $url_nvidia_tesla_driver > /dev/null
+	    if [ $? -ne 0 ]
+	    then
+	        echo "Failed to download the NVIDIA driver. Aborting..."
+	        exit 29
+	    fi
+	    sudo /bin/sh ./NVIDIA-Linux-x86_64*.run -s > /dev/null
+	    sudo nvidia-xconfig --preserve-busid --enable-all-gpus > /dev/null
+	    rm -f ./NVIDIA-Linux-x86_64*.run -s
+	fi
 }
 
 centosSetupAmdDriver()
@@ -1378,8 +1393,13 @@ centosSetupNiceDcvServer()
         sudo yum -y install nice-dcv-web-viewer*.el${redhat_distro_based_version}.x86_64.rpm > /dev/null
         echo "Installing DCV GL-test..."
         sudo yum -y install nice-dcv-gltest-*.el${redhat_distro_based_version}.x86_64.rpm > /dev/null
-        echo "Installing DCV GL..."
-        sudo yum -y install nice-dcv-gl-*.el${redhat_distro_based_version}.x86_64.rpm > /dev/null
+
+        if $dcv_gpu_support
+        then
+            echo "Installing DCV GL..."
+            sudo yum -y install nice-dcv-gl-*.el${redhat_distro_based_version}.x86_64.rpm > /dev/null
+        fi
+
         echo "Installing DCV Simple external authenticator..."
         sudo yum -y install nice-dcv-simple-external-authenticator-*.el${redhat_distro_based_version}.x86_64.rpm > /dev/null
 
