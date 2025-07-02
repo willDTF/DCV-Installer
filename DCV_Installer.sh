@@ -105,7 +105,6 @@ checkLinuxDistro()
 {
     echo "If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
 
-
     if $setup_force
     then
         if command -v apt-get &>/dev/null
@@ -141,40 +140,42 @@ checkLinuxDistro()
         fi
     fi
 
-    if [ -f /etc/redhat-release ]
+    if [ -f /etc/os-release ]
     then
-        release_info=$(cat /etc/redhat-release)
-
-        if echo $release_info | egrep -iq centos
+        . /etc/os-release
+        case "$ID" in
+            centos|rhel|almalinux|rocky|fedora)
+                redhat_distro_based="true"
+                redhat_distro_based_version=$(echo "$VERSION_ID" | cut -d. -f1)
+                ;;
+        esac
+        
+        if [[ "${redhat_distro_based}" != "true" ]]
         then
-            redhat_distro_based="true"
-        else
-            if echo $release_info | egrep -iq almalinux
+            release_info=$(cat /etc/redhat-release)
+            
+            if echo $release_info | egrep -iq "centos|almalinux|rocky|red hat enterprise"
             then
                 redhat_distro_based="true"
-            else
-                if echo $release_info | egrep -iq rocky
+                if echo "$release_info" | egrep -iq stream
                 then
-                    redhat_distro_based="true"
+                    redhat_distro_based_version=$(cat /etc/redhat-release | grep -oE '[0-9]+')
+                else
+                    redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
                 fi
             fi
         fi
 
         if [[ "${redhat_distro_based}" == "true" ]]
         then
-            if echo "$release_info" | egrep -iq stream
-            then
-                redhat_distro_based_version=$(cat /etc/redhat-release  |  grep -oE '[0-9]+')
-            else
-                redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
-            fi
-
             if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
             then
-                echo "Your RedHat Based Linux distro version..."
+                echo "Your RedHat Based Linux distro version ($redhat_distro_based_version)..."
                 cat /etc/redhat-release
                 echo "is not supported. Aborting..."
                 exit 18
+            else
+                return 0
             fi
         else
             echo "Your RedHat Based Linux distro..."
@@ -182,30 +183,32 @@ checkLinuxDistro()
             echo "is not supported. Aborting..."
             exit 19
         fi
-    else
-        if [ -f /etc/debian_version ]
+    fi
+
+    if [ -f /etc/debian_version ]
+    then
+        if cat /etc/issue | egrep -iq "ubuntu"
         then
-            if cat /etc/issue | egrep -iq "ubuntu"
+            ubuntu_distro="true"
+            ubuntu_version=$(lsb_release -rs)
+            ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
+            ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
+            if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
             then
-                ubuntu_distro="true"
-                ubuntu_version=$(lsb_release -rs)
-                ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
-                ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
-                if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
-                then
-                    echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
-                    exit 20
-                fi
+                echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
+                exit 20
             else
-                echo "Your Debian Based Linxu distro is not supported."
-                echo "Aborting..."
-                exit 21
+                return 0
             fi
         else
-            echo "Not able to find which distro you are using."
+            echo "Your Debian Based Linux distro is not supported."
             echo "Aborting..."
-            exit 32
+            exit 21
         fi
+    else
+        echo "Not able to find which distro you are using."
+        echo "Aborting..."
+        exit 32
     fi
 }
 
@@ -256,8 +259,20 @@ readTheServiceSetupAnswer()
         elif echo $service_name | egrep -iq "firewall"
         then
 		    echo -e "Do you want to install and setup ${GREEN}firewalld${NC}?"
-        else
+        elif echo $service_name | egrep -iq "dcv_server_install"
+        then
 		    echo -e "Do you want to install and setup ${GREEN}DCV Server${NC}?"
+        elif echo $service_name | egrep -iq "dcv_gpu_support"
+        then
+            echo -e "Do you want to install ${GREEN}Nice DCV SERVER with GPU Support?${NC}"
+        elif echo $service_name | egrep -iq "dcv_server_gpu_nvidia"
+        then
+            echo -e "Do you want to install ${GREEN}Nice DCV with NVIDIA Support?${NC}?"
+        elif echo $service_name | egrep -iq "dcv_server_gpu_amd"
+        then
+            echo -e "Do you want to install ${GREEN}Nice DCV with AMD Support?${NC}?"
+        else
+		    echo -e "Unknown question."
         fi
 
 	    echo -e "If yes, please type \"${GREEN}yes${NC}\" without quotes. Everything else will not be understood as yes."
@@ -313,25 +328,20 @@ askAboutServiceSetup()
 
 askAboutNiceDcvSetup()
 {
-    echo 
-    echo -e "Do you want to install ${GREEN}Nice DCV Server${NC}?"
 	readTheServiceSetupAnswer "dcv_server_install"
     if echo $service_setup_answer | egrep -iq "yes"
     then
         dcv_will_be_installed="true"
 	    askThePort "Nice DCV"
-        echo -e "Do you want to install ${GREEN}Nice DCV SERVER with GPU Support?${NC}"
 	    readTheServiceSetupAnswer "dcv_gpu_support"
         if echo $service_setup_answer | egrep -iq "yes"
         then
             dcv_gpu_support="true"
-            echo -e "Do you want to install ${GREEN}Nice DCV with Nvidia Support?${NC}"
 	        readTheServiceSetupAnswer "dcv_server_gpu_nvidia"
             if echo $service_setup_answer | egrep -iq "yes"
             then
                 dcv_gpu_type="nvidia"
             else
-                echo -e "Do you want to install ${GREEN}Nice DCV with AMD/Radeon Support?${NC}?"
 	            readTheServiceSetupAnswer "dcv_server_gpu_amd"
                 if echo $service_setup_answer | egrep -iq "yes"
                 then
@@ -2253,7 +2263,7 @@ finishTheSetup()
 	    echo "- Register a DCV SM client: dcv-session-manager-broker register-api-client --client-name EF"
     fi
 	echo "------------------------------------------------------------------------------------------------------------"
-	echo -e "${GREEN}Thank you very much for using the DCV Session Manager!${NC}"
+	echo -e "${GREEN}Thank you very much for using our DCV Installer!${NC}"
 	echo 
 
     if ! $without_interaction_parameter
