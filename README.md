@@ -3,7 +3,7 @@
 ## Supported Operating Systems
 
 - RedHat based Linux distros (RedHat, Centos, AlmaLinux, Rocky Linux etc); Versions: EL7, EL8 and EL9
-- Ubuntu based Linux distros; Versions: 18.04, 20.04, 22.04 and 24.04
+- Ubuntu based Linux distros; Versions: 18.04, 20.04 and 22.04
 
 ## Which services can be installed and configured
 
@@ -57,6 +57,11 @@ DCV Server with GPU acceleration and DCV Session Manager components:
 ```bash
 bash DCV_Installer.sh --without-interaction --dcv_server_install=true --dcv_server_gpu_nvidia=true --dcv_broker=true --dcv_agent=true --dcv_cli=true --dcv_gateway=true --dcv_firewall=true
 ``` 
+
+DCV Server without GPU and without OS packages upgrades:
+```bash
+bash DCV_Installer.sh --without-interaction --dcv_server_install=true --enable_os_upgrade=false
+```
 
 ## How to customize the DCV_Installer.sh
 

@@ -59,6 +59,10 @@ checkParameters()
                     dcv_server_gpu_amd="true"
                     shift
                     ;;
+                   --enable_os_upgrade=false)
+                    enable_os_upgrade="false"
+                    shift
+                    ;;
                    --force)
                     setup_force="true"
                     shift
@@ -606,8 +610,11 @@ ubuntuSetupRequiredPackages()
 
     case "${ubuntu_version}" in
         "20.04"|"22.04"|"24.04")
-            echo -n "Doing apt-get upgrade..."
-            sudo apt-get -y upgrade
+            if $enable_os_upgrade
+            then
+                echo -n "Doing apt-get upgrade..."
+                sudo apt-get -y upgrade
+            fi
             ;;
     esac
     echo "done."
@@ -1243,8 +1250,12 @@ ubuntuConfigureFirewall()
 centosSetupNiceDcvWithGpuPrepareBase()
 {
     echo "Preparing CentOS..."
-    echo "Doing yum upgrade..."
-    sudo yum upgrade -y > /dev/null
+    
+    if $enable_os_upgrade
+    then
+        echo "Doing yum upgrade..."
+        sudo yum upgrade -y > /dev/null
+    fi
 
     # setup server GUI
     echo -n "Installing graphical interface... if your server is slow, please wait for a moment..."
@@ -1767,12 +1778,16 @@ centosImportKey()
 
 centosSetupRequiredPackages()
 {
-    echo "Updating the system ..."
-	sudo yum -y update
-	if [ $? -ne 0 ]
+    if $enable_os_upgrade
     then
-        echo "Failed to execute yum update. Aborting..."
-        exit 11
+        echo "Updating the system ..."
+    	sudo yum -y update
+
+    	if [ $? -ne 0 ]
+        then
+            echo "Failed to execute yum update. Aborting..."
+            exit 11
+        fi
     fi
 
 	sudo yum -y install vim rsync mtr net-tools lsof tar unzip > /dev/null
@@ -2316,6 +2331,7 @@ dcv_gateway="false"
 dcv_firewall="false"
 dcv_server_gpu_nvidia="false"
 dcv_server_gpu_amd="false"
+enable_os_upgrade="true"
 ubuntu_distro="false"
 ubuntu_version=""
 ubuntu_major_version=""
