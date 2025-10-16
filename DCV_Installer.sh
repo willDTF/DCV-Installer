@@ -59,8 +59,8 @@ checkParameters()
                     dcv_server_gpu_amd="true"
                     shift
                     ;;
-                   --enable_os_upgrade=false)
-                    enable_os_upgrade="false"
+                   --enable_os_upgrade=true)
+                    enable_os_upgrade="true"
                     shift
                     ;;
                    --force)
@@ -107,10 +107,11 @@ service_setup_answerClear()
 
 checkLinuxDistro()
 {
-    echo "If you know what you are doing, please use --force option to avoid our Linux Distro compatibility test."
-
+    echo "Detecting Linux distribution..."
+    
     if $setup_force
     then
+        echo "Force mode enabled - using basic package manager detection"
         if command -v apt-get &>/dev/null
         then
             ubuntu_distro="true"
@@ -132,88 +133,266 @@ checkLinuxDistro()
         return 0
     fi
 
+    # Method 1: Check /etc/os-release
+    if [ -f /etc/os-release ]
+    then
+        . /etc/os-release
+        
+        # Ubuntu Detection
+        if [[ "$ID" == "ubuntu" ]]
+        then
+            ubuntu_distro="true"
+            ubuntu_version="$VERSION_ID"
+            ubuntu_major_version=$(echo "$ubuntu_version" | cut -d '.' -f 1)
+            ubuntu_minor_version=$(echo "$ubuntu_version" | cut -d '.' -f 2)
+            
+            # Validate Ubuntu version
+            case "$ubuntu_version" in
+                18.04|20.04|22.04|24.04)
+                    echo "Detected Ubuntu $ubuntu_version"
+                    return 0
+                    ;;
+                *)
+                    echo "Your Ubuntu version >>> $ubuntu_version <<< is not officially supported."
+                    echo "Supported versions: ${ubuntu_supported_versions}"
+                    exit 20
+                    ;;
+            esac
+        fi
+        
+        # RHEL-based Detection
+        if [[ "$ID" == "centos" ]] || [[ "$ID" == "rhel" ]] || [[ "$ID" == "almalinux" ]] || \
+           [[ "$ID" == "rocky" ]] || [[ "$ID" == "fedora" ]] || [[ "$ID_LIKE" =~ "rhel" ]] || \
+           [[ "$ID_LIKE" =~ "fedora" ]]
+        then
+            redhat_distro_based="true"
+            redhat_distro_based_version=$(echo "$VERSION_ID" | cut -d. -f1)
+            
+            # Validate RHEL version
+            case "$redhat_distro_based_version" in
+                7|8|9)
+                    echo "Detected RHEL-based distribution (EL$redhat_distro_based_version): $PRETTY_NAME"
+                    return 0
+                    ;;
+                *)
+                    echo "Your RHEL-based Linux version (EL$redhat_distro_based_version) is not supported."
+                    echo "Supported versions: ${redhat_supported_versions}"
+                    exit 18
+                    ;;
+            esac
+        fi
+        
+        # Amazon Linux Detection
+        if [[ "$ID" == "amzn" ]]
+        then
+            amazon_distro_based="true"
+            amazon_distro_version="$VERSION_ID"
+            if [[ "$VERSION_ID" == "2" ]]
+            then
+                redhat_distro_based="true"
+                redhat_distro_based_version="7"
+                echo "Detected Amazon Linux 2"
+                return 0
+            elif [[ "$VERSION_ID" == "2023" ]]
+            then
+                redhat_distro_based="true"
+                redhat_distro_based_version="9"
+                echo "Detected Amazon Linux 2023"
+                return 0
+            else
+                echo "Amazon Linux version $VERSION_ID is not supported"
+                exit 19
+            fi
+        fi
+    fi
+
+    # Method 2: Check /etc/redhat-release
     if [ -f /etc/redhat-release ]
     then
-        if cat /etc/redhat-release | egrep -iq "amazon linux 2"
+        release_info=$(cat /etc/redhat-release)
+        
+        # Amazon Linux 2 specific check
+        if echo "$release_info" | grep -qi "amazon linux 2"
         then
             amazon_distro_based="true"
             amazon_distro_version="2"
             redhat_distro_based="true"
             redhat_distro_based_version="7"
+            echo "Detected Amazon Linux 2"
             return 0
         fi
-    fi
-
-    if [ -f /etc/os-release ]
-    then
-        . /etc/os-release
-        case "$ID" in
-            centos|rhel|almalinux|rocky|fedora)
-                redhat_distro_based="true"
-                redhat_distro_based_version=$(echo "$VERSION_ID" | cut -d. -f1)
-                ;;
-        esac
         
-        if [[ "${redhat_distro_based}" != "true" ]]
+        # Generic RHEL-based detection
+        if echo "$release_info" | grep -qiE "centos|almalinux|rocky|red hat enterprise|oracle linux"
         then
-            release_info=$(cat /etc/redhat-release)
+            redhat_distro_based="true"
             
-            if echo $release_info | egrep -iq "centos|almalinux|rocky|red hat enterprise"
+            # Extract version number
+            if echo "$release_info" | grep -qi "stream"
             then
-                redhat_distro_based="true"
-                if echo "$release_info" | egrep -iq stream
-                then
-                    redhat_distro_based_version=$(cat /etc/redhat-release | grep -oE '[0-9]+')
-                else
-                    redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1)
-                fi
-            fi
-        fi
-
-        if [[ "${redhat_distro_based}" == "true" ]]
-        then
-            if [[ ! $redhat_distro_based_version =~ ^[789]$ ]]
-            then
-                echo "Your RedHat Based Linux distro version ($redhat_distro_based_version)..."
-                cat /etc/redhat-release
-                echo "is not supported. Aborting..."
-                exit 18
+                redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+' | head -1)
             else
-                return 0
+                redhat_distro_based_version=$(echo "$release_info" | grep -oE '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
             fi
-        else
-            echo "Your RedHat Based Linux distro..."
-            cat /etc/redhat-release
-            echo "is not supported. Aborting..."
-            exit 19
+            
+            case "$redhat_distro_based_version" in
+                7|8|9)
+                    echo "Detected RHEL-based distribution (EL$redhat_distro_based_version): $release_info"
+                    return 0
+                    ;;
+                *)
+                    echo "Your RedHat-based Linux version (EL$redhat_distro_based_version) is not supported."
+                    echo "Release info: $release_info"
+                    exit 18
+                    ;;
+            esac
         fi
     fi
 
-    if [ -f /etc/debian_version ]
+    # Method 3: Check /etc/lsb-release
+    if [ -f /etc/lsb-release ]
     then
-        if cat /etc/issue | egrep -iq "ubuntu"
+        . /etc/lsb-release
+        if echo "$DISTRIB_ID" | grep -qi "ubuntu"
         then
             ubuntu_distro="true"
-            ubuntu_version=$(lsb_release -rs)
-            ubuntu_major_version=$(echo $ubuntu_version | cut -d '.' -f 1)
-            ubuntu_minor_version=$(echo $ubuntu_version | cut -d '.' -f 2)
-            if ( [[ $ubuntu_major_version -lt 18 ]] || [[ $ubuntu_major_version -gt 24  ]] ) && [[ $ubuntu_minor_version -ne 04 ]]
+            ubuntu_version="$DISTRIB_RELEASE"
+            ubuntu_major_version=$(echo "$ubuntu_version" | cut -d '.' -f 1)
+            ubuntu_minor_version=$(echo "$ubuntu_version" | cut -d '.' -f 2)
+            
+            case "$ubuntu_version" in
+                18.04|20.04|22.04|24.04)
+                    echo "Detected Ubuntu $ubuntu_version (via lsb-release)"
+                    return 0
+                    ;;
+                *)
+                    echo "Your Ubuntu version >>> $ubuntu_version <<< is not officially supported."
+                    exit 20
+                    ;;
+            esac
+        fi
+    fi
+
+    # Method 4: Check /etc/debian_version
+    if [ -f /etc/debian_version ]
+    then
+        if [ -f /etc/issue ] && grep -qi "ubuntu" /etc/issue
+        then
+            ubuntu_distro="true"
+            
+            # Try to get version from lsb_release command
+            if command -v lsb_release &>/dev/null
             then
-                echo "Your Ubuntu version >>> $ubuntu_version <<< is not supported. Aborting..."
-                exit 20
+                ubuntu_version=$(lsb_release -rs)
             else
-                return 0
+                # Fallback: try to parse from /etc/issue
+                ubuntu_version=$(grep -oP '\d+\.\d+' /etc/issue | head -1)
+            fi
+            
+            if [[ -n "$ubuntu_version" ]]
+            then
+                ubuntu_major_version=$(echo "$ubuntu_version" | cut -d '.' -f 1)
+                ubuntu_minor_version=$(echo "$ubuntu_version" | cut -d '.' -f 2)
+                
+                case "$ubuntu_version" in
+                    18.04|20.04|22.04|24.04)
+                        echo "Detected Ubuntu $ubuntu_version (via debian_version)"
+                        return 0
+                        ;;
+                    *)
+                        echo "Your Ubuntu version >>> $ubuntu_version <<< is not officially supported."
+                        exit 20
+                        ;;
+                esac
+            else
+                echo "Could not determine Ubuntu version from available sources"
+                exit 20
             fi
         else
-            echo "Your Debian Based Linux distro is not supported."
-            echo "Aborting..."
+            echo "Your Debian-based Linux distribution is not supported."
+            echo "Only Ubuntu ${ubuntu_supported_versions} are supported."
             exit 21
         fi
-    else
-        echo "Not able to find which distro you are using."
-        echo "Aborting..."
-        exit 32
     fi
+
+    # Method 5: Check system files
+    if [ -f /etc/system-release ]
+    then
+        system_release=$(cat /etc/system-release)
+        
+        if echo "$system_release" | grep -qiE "centos|red hat|almalinux|rocky"
+        then
+            redhat_distro_based="true"
+            redhat_distro_based_version=$(echo "$system_release" | grep -oE '[0-9]+' | head -1)
+            
+            case "$redhat_distro_based_version" in
+                7|8|9)
+                    echo "Detected RHEL-based system (EL$redhat_distro_based_version): $system_release"
+                    return 0
+                    ;;
+                *)
+                    echo "RHEL version $redhat_distro_based_version is not supported"
+                    exit 18
+                    ;;
+            esac
+        fi
+    fi
+
+    # Method 6: Use uname and package manager as final fallback
+    if command -v apt-get &>/dev/null
+    then
+        echo "WARNING: Using fallback detection - apt-get found, assuming Ubuntu-based system"
+        ubuntu_distro="true"
+        
+        # Try to determine version from installed packages
+        if dpkg -l | grep -q ubuntu-minimal
+        then
+            ubuntu_version=$(dpkg -l ubuntu-minimal | grep ^ii | awk '{print $3}' | grep -oP '\d+\.\d+' | head -1)
+        fi
+        
+        if [[ -z "$ubuntu_version" ]]
+        then
+            echo "Could not determine Ubuntu version. Please use --force option if you want to proceed."
+            exit 20
+        fi
+        
+        ubuntu_major_version=$(echo "$ubuntu_version" | cut -d '.' -f 1)
+        ubuntu_minor_version=$(echo "$ubuntu_version" | cut -d '.' -f 2)
+        echo "Fallback detection: Ubuntu $ubuntu_version"
+        return 0
+        
+    elif command -v yum &>/dev/null || command -v dnf &>/dev/null
+    then
+        echo "WARNING: Using fallback detection - yum/dnf found, assuming RHEL-based system"
+        redhat_distro_based="true"
+        
+        # Try to detect version from rpm
+        if rpm -q --queryformat '%{VERSION}' centos-release &>/dev/null
+        then
+            redhat_distro_based_version=$(rpm -q --queryformat '%{VERSION}' centos-release | cut -d. -f1)
+        elif rpm -q --queryformat '%{VERSION}' redhat-release-server &>/dev/null
+        then
+            redhat_distro_based_version=$(rpm -q --queryformat '%{VERSION}' redhat-release-server | cut -d. -f1)
+        else
+            echo "Could not determine RHEL version. Please use --force option if you want to proceed."
+            exit 18
+        fi
+        
+        echo "Fallback detection: RHEL-based EL$redhat_distro_based_version"
+        return 0
+    fi
+
+    # If we reach here, we couldn't detect the distribution
+    echo "ERROR: Unable to detect your Linux distribution."
+    echo "Please use --force option to bypass this check if you know what you're doing."
+    echo ""
+    echo "Debugging information:"
+    echo "  - /etc/os-release: $([ -f /etc/os-release ] && echo 'exists' || echo 'missing')"
+    echo "  - /etc/redhat-release: $([ -f /etc/redhat-release ] && echo 'exists' || echo 'missing')"
+    echo "  - /etc/lsb-release: $([ -f /etc/lsb-release ] && echo 'exists' || echo 'missing')"
+    echo "  - /etc/debian_version: $([ -f /etc/debian_version ] && echo 'exists' || echo 'missing')"
+    echo "  - uname -a: $(uname -a)"
+    exit 32
 }
 
 disableIpv6()
@@ -598,9 +777,9 @@ ubuntuSetupRequiredPackages()
             sudo apt-get -qqy install openjdk-11-jdk
             ;;
         "24.04")
-            sudo apt-get -y install ubuntu-desktop
-            sudo apt-get -qqy install gdm3
-            sudo apt-get -qqy install openjdk-11-jdk
+            sudo apt -y install ubuntu-desktop
+            sudo apt -qqy install gdm3
+            sudo apt -qqy install openjdk-11-jdk
             ;;
     esac
 
@@ -609,13 +788,21 @@ ubuntuSetupRequiredPackages()
     disableWayland
 
     case "${ubuntu_version}" in
-        "20.04"|"22.04"|"24.04")
+        "20.04")
             if $enable_os_upgrade
             then
                 echo -n "Doing apt-get upgrade..."
                 sudo apt-get -y upgrade
             fi
             ;;
+        "22.04"|"24.04")
+            if $enable_os_upgrade
+            then
+                echo -n "Doing apt upgrade..."
+                sudo apt -y upgrade
+            fi
+            ;;
+
     esac
     echo "done."
 
@@ -1790,12 +1977,14 @@ centosSetupRequiredPackages()
         fi
     fi
 
+    echo "Installing essential packages..."
 	sudo yum -y install vim rsync mtr net-tools lsof tar unzip > /dev/null
 	if [ $? -ne 0 ]
     then
         echo "Failed to setup the basic packages. Aborting..."
         exit 13
     fi
+    echo "...done!"
 }
 
 genericSetupSessionManagerBroker()
@@ -2331,13 +2520,15 @@ dcv_gateway="false"
 dcv_firewall="false"
 dcv_server_gpu_nvidia="false"
 dcv_server_gpu_amd="false"
-enable_os_upgrade="true"
+enable_os_upgrade="false"
 ubuntu_distro="false"
 ubuntu_version=""
 ubuntu_major_version=""
 ubuntu_minor_version=""
+ubuntu_supported_versions="18.04, 20.04, 22.04 and 24.04"
 redhat_distro_based="false"
 redhat_distro_based_version=""
+redhat_supported_versions="EL7, EL8 and EL9"
 amazon_distro_based="false"
 amazon_distro_version=""
 gdm3_file="/etc/gdm3/custom.conf"

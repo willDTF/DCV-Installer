@@ -2,8 +2,8 @@
 
 ## Supported Operating Systems
 
-- RedHat based Linux distros (RedHat, Centos, AlmaLinux, Rocky Linux etc); Versions: EL7, EL8 and EL9
-- Ubuntu based Linux distros; Versions: 18.04, 20.04 and 22.04
+- RedHat based Linux distros (RedHat, Centos, AlmaLinux, Rocky Linux and Oracle Linux); Versions: EL7, EL8 and EL9
+- Ubuntu based Linux distros; Versions: 18.04, 20.04, 22.04 and 24.04
 
 ## Which services can be installed and configured
 
@@ -62,6 +62,19 @@ DCV Server without GPU and without OS packages upgrades:
 ```bash
 bash DCV_Installer.sh --without-interaction --dcv_server_install=true --enable_os_upgrade=false
 ```
+
+## Possible parameters
+- __--without-interaction :__ Do everything without interaction
+- __--dcv_server_install=true :__ Install DCV Server
+- __--dcv_broker=true :__ Install DCV Broker
+- __--dcv_agent=true :__ Install DCV Agent
+- __--dcv_cli=true :__ Install DCV CLI
+- __--dcv_gateway=true :__ Install DCV Gateway
+- __--dcv_firewall=true :__ Allow TCP/UDP ports in firewalld
+- __--dcv_server_gpu_nvidia=true :__ Setup NVIDIA driver
+- __--dcv_server_gpu_amd=true :__ Install AMD driver
+- __--enable_os_upgrade=false :__ Allow OS packages upgrade or not
+- __--force :__ If your distribution version is not being recognized, you can try to force the setup
 
 ## How to customize the DCV_Installer.sh
 
