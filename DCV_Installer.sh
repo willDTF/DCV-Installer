@@ -993,6 +993,8 @@ ubuntuSetupNiceDcvServer()
     sudo sed -ie 's/#owner = ""/owner = "ubuntu"/' /etc/dcv/dcv.conf
     sudo sed -ie 's/#create-session = true/create-session = true/' /etc/dcv/dcv.conf
     sudo sed -ie 's/"1"/"0"/g' /etc/apt/apt.conf.d/20auto-upgrades
+
+    echo "Restarting graphical services..."
     sudo systemctl isolate multi-user.target > /dev/null
     sudo dcvgladmin enable > /dev/null
     sudo systemctl isolate graphical.target > /dev/null
@@ -1616,6 +1618,8 @@ centosSetupNiceDcvServer()
         	echo "Failed to setup the DCV Server. Aborting..."
         	exit 10
     	fi
+
+        echo "Restarting graphical services..."
 		sudo systemctl isolate multi-user.target > /dev/null
 		sudo systemctl isolate graphical.target > /dev/null
 
@@ -1890,6 +1894,7 @@ centosSetupNiceDcvWithoutGpu()
 
     disableWayland
 
+    echo "Restarting graphical services..."
 	sudo systemctl get-default > /dev/null
 	sudo systemctl set-default graphical.target > /dev/null
 	sudo systemctl isolate graphical.target > /dev/null
@@ -2031,6 +2036,7 @@ centosSetupSessionManagerBroker()
 	
     if [ $? -eq 0 ]
     then
+        echo "Installing Session Manager Broker..."
 		sudo yum install -y nice-dcv-session-manager-broker-*.noarch.rpm > /dev/null
         rm -f nice-dcv-session-manager-broker*.rpm
 		if [ $? -ne 0 ]
@@ -2147,6 +2153,7 @@ centosSetupSessionManagerGateway()
 
     if [ $? -eq 0 ]
     then
+        echo "Installing DCV Gateway..."
 		sudo yum install -y nice-dcv-connection-gateway*.rpm > /dev/null
         rm -f nice-dcv-connection-gateway*.rpm
 	    if [ $? -ne 0 ]
@@ -2192,6 +2199,7 @@ EOF
             groupadd $dcv_gateway_group
         fi
 
+        echo "Restarting DCV Gateway..."
 		sudo systemctl enable --now dcv-connection-gateway > /dev/null
 		sudo systemctl restart dcv-connection-gateway > /dev/null
 	else
@@ -2219,6 +2227,7 @@ centosSetupSessionManagerAgent()
 
     if [ $? -eq 0 ]
     then
+        echo "Installing DCV Session Manager..."
     	sudo yum install -y nice-dcv-session-manager-agent*.rpm > /dev/null
 
     	if [ $? -ne 0 ]
@@ -2291,6 +2300,8 @@ EOF
         then
 		    sudo cp $broker_ssl_cert /etc/dcv-session-manager-agent/dcvsmbroker_ca.pem
         fi
+
+        echo "Restarting DCV Session Manager Broker..."
 		sudo systemctl restart dcv-session-manager-broker > /dev/null
 		sudo systemctl enable --now dcv-session-manager-agent > /dev/null
 	else
@@ -2343,7 +2354,7 @@ setupSessionManagerCli()
         return 0
     fi
 
-    echo -n "Downloading and configuring DCV Session Manager Cli..."
+    echo -n "Downloading and configuring DCV Session Manager CLI..."
     current_dir=$(pwd)
     cd ~
     wget -q --no-check-certificate https://d1uj6qtbmh3dt5.cloudfront.net/nice-dcv-session-manager-cli.zip > /dev/null
@@ -2393,21 +2404,17 @@ EOF
 
 setFirewalldRules()
 {
-    # if just dcv ports, $1 == dcvonly
-
-    if [[ "$1" != "dcvonly" ]]
+    if [ -f /etc/systemd/system/multi-user.target.wants/dcvserver.service ]
     then
-    	if [ -f /etc/systemd/system/multi-user.target.wants/dcvserver.service ]
-    	then
-    		sudo firewall-cmd --zone=public --add-port=${dcv_port}/tcp --permanent > /dev/null
-    		sudo firewall-cmd --zone=public --add-port=${dcv_port}/udp --permanent > /dev/null
-    	fi
+        echo "Configuring DCV ports with firewall-cmd..."
+        sudo firewall-cmd --zone=public --add-port=${dcv_port}/tcp --permanent > /dev/null
+    	sudo firewall-cmd --zone=public --add-port=${dcv_port}/udp --permanent > /dev/null
     fi
 
     if [[ "$1" != "dcvonly" ]]
     then
-
 	    # nice dcv server port
+        echo "Configuring DCV ports with firewall-cmd..."
     	if [ -f /etc/systemd/system/multi-user.target.wants/dcvserver.service ]
     	then
     		sudo firewall-cmd --zone=public --add-port=${dcv_port}/tcp --permanent > /dev/null
@@ -2415,24 +2422,28 @@ setFirewalldRules()
     	fi
 
     	# agent to broker port
+        echo "Configuring DCV Session agent to broker with firewall-cmd..."
     	if [ -f /etc/systemd/system/multi-user.target.wants/dcv-session-manager-agent.service ]
     	then
     		sudo firewall-cmd --zone=public --add-port=${agent_to_broker_port}/tcp --permanent > /dev/null
     	fi
 
     	# client to broker port
+        echo "Configuring DCV Session client to broker with firewall-cmd..."
     	if [ -f /etc/systemd/system/multi-user.target.wants/dcv-session-manager-broker.service ]
     	then
     		sudo firewall-cmd --zone=public --add-port=${client_to_broker_port}/tcp --permanent > /dev/null
     	fi
  
     	# gateway to broker
+        echo "Configuring DCV Session gateway to broker with firewall-cmd..."
     	if [ -f $dcv_gateway_config_file ]
     	then
     		sudo firewall-cmd --zone=public --add-port=${gateway_to_broker_port}/tcp --permanent > /dev/null
     	fi
     fi
 
+    echo "Reloading firewall-cmd..."
     sudo firewall-cmd --reload > /dev/null
     sudo iptables-save 
 }
@@ -2443,7 +2454,11 @@ centosConfigureFirewall()
     then
         return 0
     fi
+
+    echo "Installing firewalld..."
 	sudo yum -y install firewalld > /dev/null
+
+    echo "Saving iptables rules..."
 	sudo iptables-save > /dev/null
 
     setFirewalldRules
