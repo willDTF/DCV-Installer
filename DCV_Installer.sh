@@ -754,13 +754,8 @@ ubuntuImportKey()
     fi
 }
 
-ubuntuSetupRequiredPackages()
+ubuntuSetupUbuntuDesktop()
 {
-    echo -n "Doing apt-get update..."
-    sudo apt-get -qq update > /dev/null
-    export DEBIAN_FRONTEND=noninteractive
-    echo "done."
-
     echo -n "Installing graphical interface... if your server is slow, please wait for a moment..."
     case "${ubuntu_version}" in
         "18.04")
@@ -782,10 +777,24 @@ ubuntuSetupRequiredPackages()
             sudo apt -qqy install openjdk-11-jdk
             ;;
     esac
-
     echo "done."
 
     disableWayland
+
+    echo -n "Restarting graphic services..."
+    sudo systemctl restart gdm3 > /dev/null
+    sudo systemctl get-default > /dev/null
+    sudo systemctl set-default graphical.target > /dev/null
+    sudo systemctl isolate graphical.target > /dev/null
+    echo "done."
+}
+
+ubuntuSetupRequiredPackages()
+{
+    echo -n "Doing apt-get update..."
+    sudo apt-get -qq update > /dev/null
+    export DEBIAN_FRONTEND=noninteractive
+    echo "done."
 
     case "${ubuntu_version}" in
         "20.04")
@@ -806,12 +815,6 @@ ubuntuSetupRequiredPackages()
     esac
     echo "done."
 
-    echo -n "Restarting graphic services..."
-    sudo systemctl restart gdm3 > /dev/null
-    sudo systemctl get-default > /dev/null
-    sudo systemctl set-default graphical.target > /dev/null
-    sudo systemctl isolate graphical.target > /dev/null
-    echo "done."
 }
 
 ubuntuSetupNiceDcvWithGpuPrepareBase()
@@ -939,6 +942,8 @@ compileAndSetupRadeonTop()
 
 ubuntuSetupNiceDcvServer()
 {
+    ubuntuSetupUbuntuDesktop
+
     case "${ubuntu_version}" in
         "18.04")
             dcv_server_pkg="https://d1uj6qtbmh3dt5.cloudfront.net/2021.3/Servers/nice-dcv-2021.3-11591-ubuntu1804-x86_64.tgz"
