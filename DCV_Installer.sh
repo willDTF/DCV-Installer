@@ -759,7 +759,7 @@ ubuntuSetupUbuntuDesktop()
     esac
     echo "done."
 
-    disableWayland
+    
 
     echo -n "Restarting graphic services..."
     sudo systemctl restart gdm3 > /dev/null
@@ -1442,7 +1442,7 @@ centosSetupNiceDcvWithGpuPrepareBase()
         sudo yum groupinstall -y 'Server with GUI'
     fi
 
-    disableWayland
+    
 
     sudo systemctl get-default > /dev/null
     sudo systemctl set-default graphical.target > /dev/null
@@ -1877,7 +1877,7 @@ centosSetupNiceDcvWithoutGpu()
 	fi
     echo "done."
 
-    #disableWayland
+    
 
     echo "Restarting graphical services..."
 	sudo systemctl get-default > /dev/null
