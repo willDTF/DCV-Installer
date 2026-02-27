@@ -80,15 +80,6 @@ checkParameters()
     fi
 }
 
-disableWayland()
-{
-    echo "Désactivation de Wayland..."
-    sudo sed -i 's/#WaylandEnable=false/WaylandEnable=false/' /etc/gdm3/custom.conf
-    # Pour certaines versions plus anciennes ou différentes
-    if [ -f /etc/gdm3/daemon.conf ]; then
-        sudo sed -i 's/#WaylandEnable=false/WaylandEnable=false/' /etc/gdm3/daemon.conf
-    fi
-}
 service_setup_answerClear()
 {
     service_setup_answer=""
