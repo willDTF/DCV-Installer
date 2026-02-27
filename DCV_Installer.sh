@@ -80,7 +80,7 @@ checkParameters()
     fi
 }
 
-disableWayland()
+#disableWayland()
 {
     for gdm_custom_config_file in $gdm3_file $gdm_file
     do
@@ -1897,7 +1897,7 @@ centosSetupNiceDcvWithoutGpu()
 	fi
     echo "done."
 
-    disableWayland
+    #disableWayland
 
     echo "Restarting graphical services..."
 	sudo systemctl get-default > /dev/null
