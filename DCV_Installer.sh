@@ -80,25 +80,25 @@ checkParameters()
     fi
 }
 
-#disableWayland()
-{
-    for gdm_custom_config_file in $gdm3_file $gdm_file
-    do
-        if [ -f "$gdm_custom_config_file" ]
-        then
-            echo -n "Disabling Wayland..."
-            sudo cp -a $gdm_custom_config_file ${gdm_custom_config_file}.backup_$(date +%Y%m%d)
-            if grep -q "^WaylandEnable" "$gdm_custom_config_file"
-            then
-                sudo sed -i 's/^WaylandEnable.*/WaylandEnable=false/' "$gdm_custom_config_file"
-            else
-                sudo sed -i '/^\[daemon\]/a WaylandEnable=false' "$gdm_custom_config_file"
-            fi
-        else
-            echo "The file $gdm_custom_config_file does not exist."
-        fi
-    done
-}
+disableWayland()
+#{
+ #   for gdm_custom_config_file in $gdm3_file $gdm_file
+  #  do
+   #     if [ -f "$gdm_custom_config_file" ]
+    #    then
+     #       echo -n "Disabling Wayland..."
+      #      sudo cp -a $gdm_custom_config_file ${gdm_custom_config_file}.backup_$(date +%Y%m%d)
+       #     if grep -q "^WaylandEnable" "$gdm_custom_config_file"
+        #    then
+         #       sudo sed -i 's/^WaylandEnable.*/WaylandEnable=false/' "$gdm_custom_config_file"
+          #  else
+           #     sudo sed -i '/^\[daemon\]/a WaylandEnable=false' "$gdm_custom_config_file"
+            #fi
+        #else
+         #   echo "The file $gdm_custom_config_file does not exist."
+        #fi
+    #done
+#}
 
 service_setup_answerClear()
 {
