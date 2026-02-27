@@ -762,10 +762,11 @@ ubuntuSetupUbuntuDesktop()
     
 
     echo -n "Restarting graphic services..."
-    sudo systemctl restart gdm3 > /dev/null
     sudo systemctl get-default > /dev/null
     sudo systemctl set-default graphical.target > /dev/null
-    sudo systemctl isolate graphical.target > /dev/null
+    sudo systemctl enable gdm3 > /dev/null 2>&1
+    sudo systemctl start gdm3 &
+    sleep 2
     echo "done."
 }
 
@@ -1880,9 +1881,11 @@ centosSetupNiceDcvWithoutGpu()
     
 
     echo "Restarting graphical services..."
-	sudo systemctl get-default > /dev/null
-	sudo systemctl set-default graphical.target > /dev/null
-	sudo systemctl isolate graphical.target > /dev/null
+    sudo systemctl get-default > /dev/null
+    sudo systemctl set-default graphical.target > /dev/null
+    sudo systemctl enable gdm > /dev/null 2>&1
+    sudo systemctl start gdm &
+    sleep 2
 	sudo yum -y install glx-utils xorg-x11-drv-dummy git > /dev/null
     if [ $? -ne 0 ]
     then
